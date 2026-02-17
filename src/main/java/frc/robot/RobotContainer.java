@@ -30,7 +30,8 @@ import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.TurretSubsystem;
-import frc.robot.subsystems.ShooterSubsytem;
+import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.subsystems.NewTurretSubsystem;
 
 public class RobotContainer {
     public boolean oneHanded = false;
@@ -53,7 +54,9 @@ public class RobotContainer {
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final TurretSubsystem turret = new TurretSubsystem();
-        public final ShooterSubsytem Shooter = new ShooterSubsytem();
+       public final NewTurretSubsystem newturret = new NewTurretSubsystem();
+
+        public final ShooterSubsystem Shooter = new ShooterSubsystem();
 
 
     /* Path follower */
@@ -92,11 +95,13 @@ public class RobotContainer {
         
 
 
-        
-        turret.setDefaultCommand(turret.moveAtVoltage(() -> 2*joystick.getLeftTriggerAxis()) );
+   //     turret.setDefaultCommand(turret.moveAtVoltage(() -> 2*joystick.getLeftTriggerAxis()) );
 
-        joystick.button(4).onFalse(new InstantCommand(() -> Shooter.stopOutTake()));
-        joystick.button(5).onTrue(new InstantCommand(() -> Shooter.runOutTake(50, 50) ));
+     //   joystick.button(4).onFalse(new InstantCommand(() -> Shooter.stopOutTake()));
+     //  joystick.button(5).onTrue(new InstantCommand(() -> Shooter.runOutTake(90, 90) ));
+    
+    
+joystick.button(4).onTrue(newturret.setAngle(Degrees.of(100)));
 
         // new JoystickButton(joystick, 8).onTrue((new InstantCommand(drivetrain::resetGyro)));
 

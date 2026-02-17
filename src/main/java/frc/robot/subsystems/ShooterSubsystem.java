@@ -19,7 +19,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
-public class ShooterSubsytem extends SubsystemBase {
+public class ShooterSubsystem extends SubsystemBase {
     private final TalonFX intakeRightMotor;
     private final TalonFX intakeLeftMotor;
     // private final SparkPIDController pid1;
@@ -28,7 +28,7 @@ public class ShooterSubsytem extends SubsystemBase {
   private final DutyCycleOut rightOut = new DutyCycleOut(0);
   private final VelocityVoltage m_voltageVelocity = new VelocityVoltage(0);
 
-    public ShooterSubsytem() {
+    public ShooterSubsystem() {
         intakeRightMotor = new TalonFX(23); 
         intakeLeftMotor = new TalonFX(24); 
 
@@ -39,7 +39,7 @@ public class ShooterSubsytem extends SubsystemBase {
     leftConfiguration.MotorOutput.NeutralMode = NeutralModeValue.Coast;
     //leftConfiguration.Feedback.FeedbackRemoteSensorID = armAbsolutCANcoder.getDeviceID();
     //leftConfiguration.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
-    leftConfiguration.Slot0.kP = 0.75;
+    leftConfiguration.Slot0.kP = 0.8;
  //   leftConfiguration.Slot0.kV = 0.01500000071246177;
 
     leftConfiguration.Voltage.PeakForwardVoltage = 5;
@@ -48,9 +48,9 @@ public class ShooterSubsytem extends SubsystemBase {
     rightConfiguration.MotorOutput.NeutralMode = NeutralModeValue.Coast;
    // rightConfiguration.Feedback.FeedbackRemoteSensorID = armAbsolutCANcoder.getDeviceID();
     //rightConfiguration.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.SyncCANcoder;
-    rightConfiguration.Slot0.kP = 0.75;
+    rightConfiguration.Slot0.kP = 0.8;
     // rightConfiguration.Slot0.kI = 0.75;
-    // rightConfiguration.Slot0.kD = 0;
+    // rightConfiguration.Slot0.kD = 0.01;
  //   rightConfiguration.Slot0.kV = 0.01500000071246177;
     rightConfiguration.Voltage.PeakForwardVoltage = 5;
     rightConfiguration.Voltage.PeakReverseVoltage = -5;
