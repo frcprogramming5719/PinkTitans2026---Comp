@@ -3,6 +3,7 @@ package frc.robot.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import java.util.Optional;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.ctre.phoenix6.SignalLogger;
@@ -35,7 +36,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import com.ctre.phoenix6.hardware.Pigeon2;
-
+    import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.LimelightHelpers;
 import frc.robot.generated.TunerConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
@@ -284,6 +286,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
     @Override
     public void periodic() {
+
+        
         /*
          * Periodically try to apply the operator perspective.
          * If we haven't applied the operator perspective before, then we should apply it regardless of DS state.
@@ -310,6 +314,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         m_field.setRobotPose(currentPose); // Fused pose I think
         Double[] fusedPose = {currentPose.getX(), currentPose.getY(), currentPose.getRotation().getRadians()};
         SmartDashboard.putNumberArray("Fused PoseDBL", fusedPose);
+
+        publishTurretAimDebug();
+
     }
 
     private void startSimThread() {
@@ -501,6 +508,73 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         SmartDashboard.putNumberArray("Manual Pose", pose);
         return poseEstimate;
     }
+
+
+
+
+
+
+  // Basket (field coords in meters)
+  private static final double BASKET_X = 4.630371794871795;
+  private static final double BASKET_Y = 4.023371794871795;
+
+  // If turret 0 deg is robot-forward, leave 0. Otherwise tweak.
+  private static final double TURRET_ZERO_OFFSET_DEG = 0.0;
+
+  // Provide turret actual angle (deg) from outside (RobotContainer)
+  private DoubleSupplier turretActualDegSupplier = () -> Double.NaN;
+
+  public void setTurretActualDegSupplier(DoubleSupplier supplier) {
+    turretActualDegSupplier = (supplier != null) ? supplier : () -> Double.NaN;
+  }
+
+  private static double wrapDeg(double deg) {
+    double x = deg % 360.0;
+    if (x >= 180.0) x -= 360.0;
+    if (x < -180.0) x += 360.0;
+    return x;
+  }
+
+  private void publishTurretAimDebug() {
+    Pose2d pose = getState().Pose;
+
+    double rx = pose.getX();
+    double ry = pose.getY();
+
+    double dx = BASKET_X - rx;
+    double dy = BASKET_Y - ry;
+
+    double fieldAngleDeg = Math.toDegrees(Math.atan2(dy, dx));
+    double robotHeadingDeg = pose.getRotation().getDegrees();
+
+    // What turret SHOULD be (deg, relative to robot forward)
+    double turretSetpointDeg = wrapDeg((fieldAngleDeg - robotHeadingDeg) + TURRET_ZERO_OFFSET_DEG);
+
+    // What turret IS (deg) — you’ll move it by hand to test
+    double turretActualDeg = turretActualDegSupplier.getAsDouble();
+    double turretErrorDeg = Double.isNaN(turretActualDeg) ? Double.NaN : wrapDeg(turretSetpointDeg - turretActualDeg);
+
+    // SmartDashboard outputs
+    SmartDashboard.putNumber("TurretCRT/RobotX", rx);
+    SmartDashboard.putNumber("TurretCRT/RobotY", ry);
+    SmartDashboard.putNumber("TurretCRT/RobotHeadingDeg", robotHeadingDeg);
+
+    SmartDashboard.putNumber("TurretCRT/TargetX", BASKET_X);
+    SmartDashboard.putNumber("TurretCRT/TargetY", BASKET_Y);
+    SmartDashboard.putNumber("TurretCRT/dX", dx);
+    SmartDashboard.putNumber("TurretCRT/dY", dy);
+
+    SmartDashboard.putNumber("TurretCRT/FieldAngleDeg", fieldAngleDeg);
+    SmartDashboard.putNumber("TurretCRT/SetpointDeg", turretSetpointDeg);
+
+    SmartDashboard.putNumber("TurretCRT/ActualDeg", turretActualDeg);
+    SmartDashboard.putNumber("TurretCRT/ErrorDeg", turretErrorDeg);
+
+    // If EasyCRT expects "AngleDegrees" style value, it usually still comes from a double.
+    // You can read TurretCRT/SetpointDeg (and ActualDeg) inside EasyCRT.
+  }
+
+
 
 
 
