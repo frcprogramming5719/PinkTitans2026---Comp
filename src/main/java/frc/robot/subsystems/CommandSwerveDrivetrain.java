@@ -11,6 +11,8 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
@@ -25,6 +27,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -36,7 +39,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import com.ctre.phoenix6.hardware.Pigeon2;
-    import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.LimelightHelpers;
 import frc.robot.generated.TunerConstants;
@@ -53,6 +56,11 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     private static final double kSimLoopPeriod = 0.004; // 4 ms
     private Notifier m_simNotifier = null;
     private double m_lastSimTime;
+    public Angle turretDeg;
+    public double hoodDeg;
+    private double headingkP = 5.0;
+    private double headingkI = 0;
+    private double headingkD = 0;
 
 
     //Vision variables
@@ -76,7 +84,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
     /** Swerve request to apply during robot-centric path following */
     private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
-
+    // Awesome cool rotate to exact angle
+    private final SwerveRequest.FieldCentricFacingAngle m_rotateToAngleRequest =
+        new SwerveRequest.FieldCentricFacingAngle()
+            .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
+    // stop
+    private final SwerveRequest.ApplyRobotSpeeds m_stopRequest =
+        new SwerveRequest.ApplyRobotSpeeds();
     /* Swerve requests to apply during SysId characterization */
     private final SwerveRequest.SysIdSwerveTranslation m_translationCharacterization = new SwerveRequest.SysIdSwerveTranslation();
     private final SwerveRequest.SysIdSwerveSteerGains m_steerCharacterization = new SwerveRequest.SysIdSwerveSteerGains();
@@ -163,6 +177,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
         configureAutoBuilder();
+        m_rotateToAngleRequest.HeadingController.setPID(headingkP, headingkI, headingkD);
+        m_rotateToAngleRequest.HeadingController.enableContinuousInput(-Math.PI, Math.PI);
     }
 
     /**
@@ -188,6 +204,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
         configureAutoBuilder();
+        m_rotateToAngleRequest.HeadingController.setPID(headingkP, headingkI, headingkD);
+        m_rotateToAngleRequest.HeadingController.enableContinuousInput(-Math.PI, Math.PI);
+        
     }
 
     /**
@@ -221,6 +240,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
         configureAutoBuilder();
+        m_rotateToAngleRequest.HeadingController.setPID(headingkP, headingkI, headingkD);
+        m_rotateToAngleRequest.HeadingController.enableContinuousInput(-Math.PI, Math.PI);
     }
 
     private void configureAutoBuilder() {
@@ -240,7 +261,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                     // PID constants for translation
                     new PIDConstants(10, 0, 0),
                     // PID constants for rotation
-                    new PIDConstants(7, 0, 0)
+                    new PIDConstants(5, 0, 0)
                 ),
                 config,
                 // Assume the path needs to be flipped for Red vs Blue, this is normally the case
@@ -316,6 +337,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         SmartDashboard.putNumberArray("Fused PoseDBL", fusedPose);
 
         publishTurretAimDebug();
+        
 
     }
 
@@ -332,6 +354,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             updateSimState(deltaTime, RobotController.getBatteryVoltage());
         });
         m_simNotifier.startPeriodic(kSimLoopPeriod);
+        turretDeg = getTurretTargetAngle();
+        hoodDeg = getHoodTargetDeg();
     }
 
     /**
@@ -570,15 +594,63 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     SmartDashboard.putNumber("TurretCRT/ActualDeg", turretActualDeg);
     SmartDashboard.putNumber("TurretCRT/ErrorDeg", turretErrorDeg);
 
-    // If EasyCRT expects "AngleDegrees" style value, it usually still comes from a double.
-    // You can read TurretCRT/SetpointDeg (and ActualDeg) inside EasyCRT.
+    // If EasyCRT expects "AngleDegrees" style value, i                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    g) inside EasyCRT.
   }
 
+  public double getTurretTargetDeg() {
+    Pose2d pose = getState().Pose;
 
+    double rx = pose.getX();
+    double ry = pose.getY();
 
+    double dx = BASKET_X - rx;
+    double dy = BASKET_Y - ry;
 
+    double fieldAngleDeg = Math.toDegrees(Math.atan2(dy, dx));
+    double robotHeadingDeg = pose.getRotation().getDegrees();
 
-
-
-
+    return wrapDeg((fieldAngleDeg - robotHeadingDeg) + TURRET_ZERO_OFFSET_DEG);
 }
+
+public double getHoodTargetDeg() {
+    Pose2d pose = getState().Pose;
+
+    double rx = pose.getX();
+    double ry = pose.getY();
+
+    double dx = BASKET_X - rx;
+    double dy = BASKET_Y - ry;
+
+    double displacement = Math.sqrt(dx*dx+dy*dy);
+        double displacementInches = displacement * 39.3701;
+    return displacementInches;
+}
+
+public Angle getTurretTargetAngle() {
+    return Degrees.of(getTurretTargetDeg());
+}
+public Command rotateToAngle(DoubleSupplier joyX, DoubleSupplier joyY, Rotation2d targetAngle) {
+    final double toleranceDeg = 1.0;
+
+    return run(() -> setControl(
+            m_rotateToAngleRequest
+                .withVelocityX(joyX.getAsDouble())
+                .withVelocityY(joyY.getAsDouble())
+                .withTargetDirection(targetAngle)
+        )
+    ).until(() ->
+        Math.abs(targetAngle.minus(getState().Pose.getRotation()).getDegrees()) < toleranceDeg
+    );
+}
+
+public Command rotateToAngle(DoubleSupplier joyX, DoubleSupplier joyY, double theta) {
+    return rotateToAngle(joyX, joyY, Rotation2d.fromDegrees(theta));
+}
+
+public Command turnByAngle(DoubleSupplier joyX, DoubleSupplier joyY, double theta) {
+    Rotation2d target =
+        getState().Pose.getRotation().plus(Rotation2d.fromDegrees(theta));
+    return rotateToAngle(joyX, joyY, target);
+}
+}
+
